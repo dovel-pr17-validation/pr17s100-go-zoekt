@@ -1,0 +1,83 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+name: CI
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+
+      - name: install dev tools
+        uses: ./.github/actions/dev-tools
+
+      - name: cache go
+        uses: actions/cache@v6
+        with:
+          # Includes the toolchain go.mod asks for, which Go downloads into the
+          # module cache.
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: test
+        run: go test ./...
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@2.0.0
+
+  shfmt:
+    name: shfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: reviewdog/action-shfmt@v1.0.4
+        with:
+          filter_mode: "nofilter"
+          fail_on_error: "true"
+          shfmt_flags: "-i 2 -ci -bn"
+
+  lint-protos:
+    name: "buf lint"
+    runs-on: ubuntu-latest
+    steps:
+      # Run `git checkout`
+      - uses: actions/checkout@v6
+      # Install `buf` from flake.nix
+      - uses: ./.github/actions/dev-tools
+      # Lint your Protobuf sources
+      - run: .github/workflows/buf-lint-check.sh
+
+  format-protos:
+    name: "buf format"
+    runs-on: ubuntu-latest
+    steps:
+      # Run `git checkout`
+      - uses: actions/checkout@v6
+      # Install `buf` from flake.nix
+      - uses: ./.github/actions/dev-tools
+      # Check to see if the Protobuf sources are formatted
+      - run: .github/workflows/buf-format-check.sh
+
+  generate-protos:
+    name: "buf generate"
+    runs-on: ubuntu-latest
+    steps:
+      # Run `git checkout`
+      - uses: actions/checkout@v6
+      # Install `buf` from flake.nix
+      - uses: ./.github/actions/dev-tools
+      # Check if the generated code is up-to-date
+      - run: .github/workflows/buf-generate-check.sh
+
